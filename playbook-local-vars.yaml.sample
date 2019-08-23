@@ -1,0 +1,9 @@
+users:
+  - name: <username>
+    auth_key: <public key>
+    groups: <group>
+  - name: <username>
+    auth_key: <public key>
+groups:
+  - <group>
+  - <group>

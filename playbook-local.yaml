@@ -1,0 +1,63 @@
+---
+- name: Set Up SSH access keys and users on instance
+  hosts: all
+  become: true
+
+  tasks:
+    - name: "Load configuration data"
+      include_vars:
+        file: playbook-local-vars.yaml
+        name: user_vars
+
+    - name: Make wheel group users passwordless sudoers
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%wheel(\s+)ALL='
+        line: '%wheel  ALL=(ALL)       NOPASSWD: ALL'
+        validate: /usr/sbin/visudo -cf %s
+        
+    - name: Add groups
+      group:
+        name: "{{ item }}"
+      loop: "{{user_vars.groups}}"
+
+    - name: Add users
+      user:
+        name={{ item.name }}
+        shell=/bin/bash
+        append=yes
+        group={{ item.name }}
+        groups={{ item.groups|default(item.name)   }}
+      loop: "{{user_vars.users}}"
+
+    - name: Add .ssh directories
+      file:
+        path=/home/{{ item.name }}/.ssh
+        state=directory
+        mode=0700
+        owner={{ item.name }}
+        group={{ item.name }}
+      loop: "{{user_vars.users}}"
+
+    - name: Add keys
+      lineinfile:
+        dest=/home/{{ item.name }}/.ssh/authorized_keys
+        state=present
+        create=yes
+        line="{{ item.auth_key }}"
+        owner={{ item.name }}
+        group={{ item.name }}
+        mode=0644
+      when: item.auth_key is defined
+      loop: "{{user_vars.users}}"
+
+    - name: SSH keys
+      copy:
+        src={{ item.keyfiles }}/
+        dest=/home/{{ item.name }}/.ssh/
+        owner={{ item.name }}
+        group={{ item.name }}
+        mode=0600
+      when: item.keyfiles is defined
+      loop: "{{user_vars.users}}"
